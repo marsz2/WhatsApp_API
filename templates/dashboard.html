@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Business API - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,.8);
+            padding: 1rem;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover {
+            color: white;
+            background: rgba(255,255,255,.1);
+        }
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255,255,255,.2);
+        }
+        .main-content {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .stats-card {
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 0 10px rgba(0,0,0,.1);
+            transition: transform 0.3s;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar p-0">
+                <div class="text-center py-4">
+                    <h4 class="text-white">WhatsApp Business</h4>
+                </div>
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="/">
+                        <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                    </a>
+                    <a class="nav-link" href="/send-message">
+                        <i class="bi bi-send me-2"></i>Send Messages
+                    </a>
+                    <a class="nav-link" href="/templates">
+                        <i class="bi bi-file-text me-2"></i>Templates
+                    </a>
+                    <a class="nav-link" href="/contacts">
+                        <i class="bi bi-people me-2"></i>Contacts
+                    </a>
+                    <a class="nav-link" href="/message-logs">
+                        <i class="bi bi-clock-history me-2"></i>Message Logs
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-md-10 main-content p-4">
+                <h2 class="mb-4">Dashboard</h2>
+                
+                <!-- WhatsApp Status -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5>WhatsApp Web Status</h5>
+                                <div id="whatsapp-status">
+                                    <span class="badge bg-secondary">Checking...</span>
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn btn-success" onclick="loginWhatsApp()">
+                                    <i class="bi bi-whatsapp"></i> Open WhatsApp Web
+                                </button>
+                                <button class="btn btn-info" onclick="checkStatus()">
+                                    <i class="bi bi-arrow-repeat"></i> Refresh Status
+                                </button>
+                            </div>
+                        </div>
+                        <div id="qr-info" class="mt-3" style="display:none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 
+                                Please scan the QR code in the opened Chrome window to log in.
+                                Once logged in, your session will be saved and you won't need to scan again.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card stats-card bg-primary text-white">
+                            <div class="card-body">
+                                <h6>Total Contacts</h6>
+                                <h2>{{ contacts_count or 0 }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card bg-success text-white">
+                            <div class="card-body">
+                                <h6>Messages Sent</h6>
+                                <h2>{{ messages_sent or 0 }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card bg-warning text-white">
+                            <div class="card-body">
+                                <h6>Templates</h6>
+                                <h2>{{ templates_count or 0 }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card bg-info text-white">
+                            <div class="card-body">
+                                <h6>Success Rate</h6>
+                                <h2>{{ success_rate or 0 }}%</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Messages -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Recent Messages</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Phone Number</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-messages">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Check WhatsApp status on load
+        checkStatus();
+        
+        function checkStatus() {
+            fetch('/whatsapp/status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusDiv = document.getElementById('whatsapp-status');
+                    if (data.logged_in) {
+                        statusDiv.innerHTML = '<span class="badge bg-success">Connected</span>';
+                        document.getElementById('qr-info').style.display = 'none';
+                    } else {
+                        statusDiv.innerHTML = '<span class="badge bg-danger">Not Connected</span>';
+                        document.getElementById('qr-info').style.display = 'block';
+                    }
+                });
+        }
+        
+        function loginWhatsApp() {
+            fetch('/whatsapp/login')
+                .then(response => response.json())
+                .then(data => {
+                    alert('WhatsApp Web is opening in a new window. Please scan the QR code to login.');
+                    setTimeout(checkStatus, 5000);
+                });
+        }
+        
+        // Auto-refresh status every 30 seconds
+        setInterval(checkStatus, 30000);
+    </script>
+</body>
+</html>
